@@ -62,6 +62,8 @@ The notable changes of each release of ComposeUI. The format follows
 
 ### Fixed
 
+- On Textual, the calendar no longer crashes with an out-of-range year error on boundary dates
+  such as December 31, 9999 or January 1, 0001.
 - A study whose archive marks a member as patched data or as strongly encrypted is refused as an
   invalid file. Before, opening it raised `NotImplementedError`, and the web answered with a server
   error.

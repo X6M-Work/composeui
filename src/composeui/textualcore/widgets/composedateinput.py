@@ -132,16 +132,29 @@ class ComposeMonth(Widget, can_focus=True):
         """Get the cursor's month a week a list, Monday first, None out of the month."""
         month = calendar.Calendar(firstweekday=0)
         return [
-            [day if day.month == self.cursor.month else None for day in week]
-            for week in month.monthdatescalendar(self.cursor.year, self.cursor.month)
+            [
+                datetime.date(self.cursor.year, self.cursor.month, day) if day != 0 else None
+                for day in week
+            ]
+            for week in month.monthdayscalendar(self.cursor.year, self.cursor.month)
         ]
 
     def action_move(self, days: int) -> None:
-        self._move_to(self.cursor + datetime.timedelta(days=days))
+        try:
+            target = self.cursor + datetime.timedelta(days=days)
+        except OverflowError:
+            target = datetime.date.max if days > 0 else datetime.date.min
+        self._move_to(target)
 
     def action_move_month(self, months: int) -> None:
         month = self.cursor.month - 1 + months
         year, month = self.cursor.year + month // 12, month % 12 + 1
+        if year < datetime.MINYEAR:
+            self._move_to(datetime.date.min)
+            return
+        if year > datetime.MAXYEAR:
+            self._move_to(datetime.date.max)
+            return
         day = min(self.cursor.day, calendar.monthrange(year, month)[1])
         self._move_to(datetime.date(year, month, day))
 

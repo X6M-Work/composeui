@@ -433,6 +433,57 @@ async def test_a_date_input_s_calendar_names_its_days_in_the_language_and_keeps_
         assert changes == [datetime.date(2026, 11, 25), datetime.date(2026, 12, 1)]
 
 
+def test_compose_month_boundary_dates() -> None:
+    # Year 9999 boundary (Issue #178: monthdatescalendar overflowed into year 10000)
+    month_max = ComposeMonth(datetime.date(9999, 12, 31), None, None)
+    weeks = month_max._weeks()  # noqa: SLF001
+    assert weeks[-1][4] == datetime.date(9999, 12, 31)
+    assert weeks[-1][5] is None
+    assert weeks[-1][6] is None
+    month_max.action_move(1)
+    assert month_max.cursor == datetime.date.max
+    month_max.action_move(7)
+    assert month_max.cursor == datetime.date.max
+    month_max.action_move_month(1)
+    assert month_max.cursor == datetime.date.max
+
+    # Year 1 boundary
+    month_min = ComposeMonth(datetime.date(1, 1, 1), None, None)
+    weeks_min = month_min._weeks()  # noqa: SLF001
+    assert weeks_min[0][0] == datetime.date(1, 1, 1)
+    month_min.action_move(-1)
+    assert month_min.cursor == datetime.date.min
+    month_min.action_move(-7)
+    assert month_min.cursor == datetime.date.min
+    month_min.action_move_month(-1)
+    assert month_min.cursor == datetime.date.min
+
+
+@pytest.mark.asyncio
+async def test_a_date_input_calendar_handles_boundary_dates() -> None:
+    view, app, _ = await _booking_app()
+    arrival = view.form.arrival
+
+    async with app.run_test(size=(80, 30)) as pilot:
+        arrival.maximum = datetime.date(9999, 12, 31)
+        arrival.value = datetime.date(9999, 12, 31)
+        await pilot.pause()
+        field = _field_widget(arrival.renderer)
+        assert isinstance(field, ComposeDateInput)
+        await pilot.pause()
+        await pilot.click(field.button)
+        await pilot.pause()
+        month = app.screen.query_one(ComposeMonth)
+        assert month.has_focus
+        assert month.cursor == datetime.date(9999, 12, 31)
+        await pilot.press("right", "down", "pagedown")
+        await pilot.pause()
+        assert month.cursor == datetime.date(9999, 12, 31)
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, ComposeCalendar)
+
+
 @pytest.mark.asyncio
 async def test_a_file_upload_gives_the_user_s_file_from_the_picker_without_a_copy(
     tmp_path: Path,
